@@ -1,0 +1,31 @@
+{
+  "idade_minima_dias": 2,
+  "intervalo_minutos": 30,
+  "apagar_lixo_apos_dias": 7,
+  "temp": {
+    "ligado": true,
+    "idade_minima_dias": 1
+  },
+  "windows_temp": {
+    "ligado": true,
+    "idade_minima_dias": 1
+  },
+  "crashdumps": {
+    "ligado": true,
+    "idade_minima_dias": 1
+  },
+  "prefetch": {
+    "ligado": true,
+    "idade_minima_dias": 0
+  },
+  "pastas": {
+    "Imagens": [".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".svg", ".heic", ".ico", ".jfif"],
+    "PDFs": [".pdf"],
+    "Documentos": [".doc", ".docx", ".txt", ".rtf", ".odt", ".xls", ".xlsx", ".ppt", ".pptx", ".csv"],
+    "Videos": [".mp4", ".mkv", ".avi", ".mov", ".wmv", ".webm"],
+    "Audio": [".mp3", ".wav", ".flac", ".aac", ".ogg", ".m4a"],
+    "Compactados": [".zip", ".rar", ".7z", ".tar", ".gz", ".bz2", ".zst", ".xz", ".tgz"],
+    "Instaladores": [".exe", ".msi", ".msix"]
+  },
+  "lixo": [".tmp", ".crdownload", ".part", ".download", ".partial", ".lock"]
+}
