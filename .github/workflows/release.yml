@@ -1,0 +1,46 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Baixar o codigo
+        uses: actions/checkout@v4
+
+      - name: Montar o zip
+        run: |
+          mkdir -p dist/Limpador-Windows
+          cp manutencao.bat aplicar.bat chuva.ps1 README.md LICENSE dist/Limpador-Windows/
+          cd dist
+          zip -r "Limpador-Windows-v1.${{ github.run_number }}.zip" Limpador-Windows
+
+      - name: Criar tag e release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="v1.${{ github.run_number }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "$TAG" -m "Release $TAG"
+          git push origin "$TAG"
+          gh release create "$TAG" \
+            "dist/Limpador-Windows-v1.${{ github.run_number }}.zip" \
+            --title "Limpador Windows $TAG" \
+            --notes "## Limpador Windows
+
+          Baixe o \`.zip\`, extraia a pasta e use:
+
+          - \`manutencao.bat\` para escolher no menu
+          - \`aplicar.bat\` para rodar tudo de uma vez
+
+          Nao precisa de Python. O Windows pede administrador na primeira abertura.
+
+          Cada merge em \`main\` gera uma release nova automaticamente."
