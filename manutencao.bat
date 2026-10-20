@@ -38,10 +38,9 @@ if /i "%~1"=="tudo" (
     exit /b
 )
 
-
 set "task_count=0"
-call :task simular_limpeza "Simular organizacao de Downloads e limpeza"
-call :task organizar_downloads "Organizar Downloads e limpar temporarios"
+call :task simular_limpeza "Simular organizacao de Downloads, Area de trabalho e limpeza"
+call :task organizar_downloads "Organizar Downloads, Area de trabalho e limpar temporarios"
 call :task clean_updates "Limpar arquivos de atualizacoes desnecessarios"
 call :task flush_dns "Limpar cache DNS"
 call :task clean_trash "Esvaziar lixeira"
@@ -52,6 +51,8 @@ call :task verify_system "Verificar arquivos protegidos (SFC verifyonly)"
 call :task repair_image "Reparar imagem do Windows (DISM RestoreHealth)"
 call :task repair_system "Corrigir arquivos do Windows (SFC scannow)"
 call :task optimize_disk "Otimizar disco (SSD/HD)"
+call :task remover_atalho "Parar limpeza automatica ao ligar o PC"
+call :task religar_atalho "Religar limpeza automatica ao ligar o PC"
 
 goto header
 
@@ -100,34 +101,37 @@ if "%STATUSDISCO%"=="BOM" (
 )
 
 set "REDE=Desconectada"
-powershell -NoProfile -Command "try { Invoke-WebRequest -Uri 'https://www.google.com' -UseBasicParsing -TimeoutSec 5 | Out-Null; exit 0 } catch { exit 1 }" >nul 2>&1
-if !errorlevel!==0 set "REDE=Conectada"
+ping -n 1 -w 1500 8.8.8.8 >nul 2>&1
+if not errorlevel 1 set "REDE=Conectada"
 
 set "IP=Nao identificado"
 for /f "tokens=2 delims=:" %%i in ('ipconfig ^| findstr /i "IPv4"') do (
     set "IP=%%i"
 )
+if "!IP:~0,1!"==" " set "IP=!IP:~1!"
 
 cls
+echo ==========================================================
+echo  A MATRIX  ^|  Siga o coelho branco.
 echo ==========================================================
 echo Administrador : %ADMIN%
 echo Computador    : %COMPUTERNAME%
 echo Usuario       : %USERNAME%
 echo Rede          : %REDE%
-echo IP            :%IP%
-echo Disco %DRIVE% : !LIVREGB! GB livres de !TOTALGB! GB ^(!LIVREPCT!%%^) - !STATUSDISCO!
+echo IP            : !IP!
+echo Disco !DRIVE:~0,1!       : !LIVREGB! GB livres de !TOTALGB! GB ^(!LIVREPCT!%%^) - !STATUSDISCO!
 echo Data/Hora     : %DATE% %TIME:~0,5%
 echo ==========================================================
 echo.
-echo                         ** MENU **                        
+echo                         ** MENU **
 echo.
 echo ==========================================================
 call :list_task
-echo 0 - Sair
+echo 0 - Sair ^(desconectar^)
 echo ==========================================================
 echo.
 set "opcao="
-set /p opcao=Escolha: 
+set /p opcao=Escolha a pilula: 
 if "%opcao%"=="0" exit /b
 call :run_task "%opcao%"
 echo.
@@ -136,23 +140,58 @@ goto header
 
 :abertura
 set "ABERTURA=1"
-powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0chuva.ps1"
+color 0A
+if exist "%~dp0chuva.ps1" (
+    powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0chuva.ps1" -Segundos 3
+)
 color 0A
 cls
-echo Acorde, %USERNAME%.
+echo.
+echo  ========================================
+echo   Acorde, %USERNAME%.
+echo  ========================================
 timeout /t 1 >nul
-echo A Matrix te pegou.
+echo   A Matrix te pegou...
 timeout /t 1 >nul
-echo Siga o coelho branco.
+echo   Siga o coelho branco.
 timeout /t 1 >nul
+echo   A escolha e sua: menu ou aplicar.bat.
+timeout /t 1 >nul
+echo.
 exit /b
 
 :criar_atalho
+if exist "%~dp0sem-vigia.flag" (
+    echo Limpeza automatica desligada. Use a opcao do menu para religar.
+    exit /b
+)
 set "ATALHO_BAT=%~f0"
 set "ATALHO_DIR=%~dp0"
-powershell -NoProfile -Command "$s = New-Object -ComObject WScript.Shell; $startup = [Environment]::GetFolderPath('Startup'); $l = $s.CreateShortcut((Join-Path $startup 'LimpadorWindows.lnk')); $l.TargetPath = $env:ATALHO_BAT; $l.Arguments = 'vigiar'; $l.WorkingDirectory = $env:ATALHO_DIR.TrimEnd('\'); $l.WindowStyle = 7; $l.Description = 'Organiza Downloads e limpa temporarios em segundo plano'; $l.Save()"
+powershell -NoProfile -Command "$s = New-Object -ComObject WScript.Shell; $startup = [Environment]::GetFolderPath('Startup'); $l = $s.CreateShortcut((Join-Path $startup 'LimpadorWindows.lnk')); $l.TargetPath = $env:ATALHO_BAT; $l.Arguments = 'vigiar'; $l.WorkingDirectory = $env:ATALHO_DIR.TrimEnd('\'); $l.WindowStyle = 7; $l.Description = 'Organiza Downloads e Area de trabalho e limpa temporarios em segundo plano'; $l.Save()"
 echo Atalho de inicializacao pronto. Na proxima entrada no Windows a limpeza repete sozinha.
 exit /b
+
+:remover_atalho
+echo Removendo o atalho da inicializacao...
+powershell -NoProfile -Command "$p = Join-Path ([Environment]::GetFolderPath('Startup')) 'LimpadorWindows.lnk'; if (Test-Path -LiteralPath $p) { Remove-Item -LiteralPath $p -Force; exit 0 } else { exit 2 }"
+if errorlevel 2 (
+    echo Nao havia atalho para remover.
+) else if errorlevel 1 (
+    echo Nao deu para remover o atalho.
+    exit /b 1
+) else (
+    echo Atalho removido.
+)
+type nul > "%~dp0sem-vigia.flag"
+echo Pronto. O Windows nao vai mais abrir a limpeza sozinho.
+echo O menu e o aplicar.bat continuam funcionando quando voce clicar neles.
+exit /b 0
+
+:religar_atalho
+if exist "%~dp0sem-vigia.flag" del /f /q "%~dp0sem-vigia.flag" >nul 2>&1
+call :criar_atalho
+echo Limpeza automatica religada.
+exit /b 0
 
 :simular_limpeza
 echo Simulacao. Nada sera movido nem apagado.
@@ -160,39 +199,136 @@ call :executar_limpeza simular 1
 exit /b
 
 :organizar_downloads
-echo Organizando Downloads e limpando temporarios, dumps e Prefetch.
-echo Instalador antigo so e movido. Nenhum programa e desinstalado.
+echo Organizando Downloads e Area de trabalho.
+echo Limpando temporarios, dumps e Prefetch.
+echo Atalhos da Area de trabalho ficam no lugar. Instalador antigo so e movido.
 call :executar_limpeza aplicar 1
-exit /b
+exit /b %ERRORLEVEL%
 
 :vigiar
 call :executar_limpeza aplicar 0 vigiar
 exit /b
 
 :aplicar_tudo
+cls
+color 0A
+title A Matrix - Manutencao completa
 echo.
-echo Aplicando a manutencao completa. Pode demorar. Nao feche esta janela.
+echo  ========================================
+echo   ENTRANDO NA MATRIX...
+echo   Manutencao completa em andamento.
+echo   Nao feche esta janela.
+echo  ========================================
 echo.
-call :organizar_downloads
+echo  Etapas longas pela frente:
+echo   - DISM RestoreHealth : cerca de 10 a 30 min
+echo   - SFC scannow        : cerca de 10 a 20 min
+echo   - CHKDSK online      : cerca de 5 a 15 min
+echo   - Otimizar disco     : varia conforme o disco
 echo.
-call :clean_updates
+timeout /t 4 >nul
+
+set "RESUMO_COUNT=0"
+set "RESUMO_OK=0"
+set "RESUMO_FALHOU=0"
+set "ESPACO_LIMPEZA=0.0 MB"
+set "BYTES_LIMPEZA=0"
+call :disco_livre LIVRE_ANTES
+
+call :rodar_passo "Organizar Downloads, Area de trabalho e limpar temporarios" organizar_downloads
+call :rodar_passo "Limpar arquivos de atualizacao" clean_updates
+call :rodar_passo "Limpar cache DNS" flush_dns
+call :rodar_passo "Esvaziar lixeira" clean_trash
+call :rodar_passo "Reiniciar fila de impressao" reset_spooler
+call :rodar_passo "Reparar imagem do Windows (DISM)" repair_image
+call :rodar_passo "Corrigir arquivos do Windows (SFC)" repair_system
+call :rodar_passo "Verificar disco (CHKDSK)" check_disk
+call :rodar_passo "Otimizar disco" optimize_disk
+
+call :disco_livre LIVRE_DEPOIS
+call :mostrar_resumo
+call :gravar_relatorio
 echo.
-call :flush_dns
+echo  Relatorio salvo em:
+echo  %ARQUIVO_RELATORIO%
 echo.
-call :clean_trash
+echo  A Matrix te devolve o controle. Enter para sair.
+pause >nul
+exit /b
+
+:rodar_passo
+set /a RESUMO_COUNT+=1
+set "RESUMO_NOME[%RESUMO_COUNT%]=%~1"
 echo.
-call :reset_spooler
+echo  ----------------------------------------
+echo  [%RESUMO_COUNT%/9] %~1
+echo  ----------------------------------------
+call :%~2
+if errorlevel 1 (
+    set "RESUMO_STATUS[%RESUMO_COUNT%]=FALHOU"
+    set /a RESUMO_FALHOU+=1
+    echo  Resultado: FALHOU
+) else (
+    set "RESUMO_STATUS[%RESUMO_COUNT%]=OK"
+    set /a RESUMO_OK+=1
+    echo  Resultado: OK
+)
+exit /b 0
+
+:aviso_longo
 echo.
-call :repair_image
+echo  ========================================
+echo   ATENCAO
+echo   %~1
+echo   Pode demorar cerca de %~2. Nao feche a janela.
+echo  ========================================
 echo.
-call :repair_system
+timeout /t 3 >nul
+exit /b
+
+:disco_livre
+set "%~1=?"
+for /f "usebackq delims=" %%A in (`powershell -NoProfile -Command "[math]::Floor((Get-PSDrive -Name ($env:SystemDrive.TrimEnd(':'))).Free/1MB)"`) do set "%~1=%%A"
+exit /b
+
+:mostrar_resumo
 echo.
-call :check_disk
-echo.
-call :optimize_disk
-echo.
-echo Manutencao completa.
-pause
+echo  ========================================
+echo   RESUMO DA MATRIX
+echo  ========================================
+for /l %%i in (1,1,%RESUMO_COUNT%) do (
+    echo   %%i. !RESUMO_STATUS[%%i]!  - !RESUMO_NOME[%%i]!
+)
+echo  ----------------------------------------
+echo   Ok: %RESUMO_OK%   Falhou: %RESUMO_FALHOU%
+echo   Espaco liberado pela limpeza: %ESPACO_LIMPEZA%
+if defined LIVRE_ANTES if defined LIVRE_DEPOIS (
+    echo   Disco livre antes : %LIVRE_ANTES% MB
+    echo   Disco livre depois: %LIVRE_DEPOIS% MB
+)
+echo  ========================================
+exit /b
+
+:gravar_relatorio
+for /f "usebackq delims=" %%T in (`powershell -NoProfile -Command "Get-Date -Format 'yyyyMMdd-HHmmss'"`) do set "STAMP=%%T"
+set "ARQUIVO_RELATORIO=%~dp0relatorio-%STAMP%.txt"
+(
+    echo Limpador Windows - Relatorio da Matrix
+    echo Data/Hora : %DATE% %TIME:~0,8%
+    echo Computador: %COMPUTERNAME%
+    echo Usuario   : %USERNAME%
+    echo.
+    echo Resultados:
+    for /l %%i in (1,1,%RESUMO_COUNT%) do echo   %%i. !RESUMO_STATUS[%%i]!  - !RESUMO_NOME[%%i]!
+    echo.
+    echo Ok: %RESUMO_OK%
+    echo Falhou: %RESUMO_FALHOU%
+    echo Espaco liberado pela limpeza de arquivos: %ESPACO_LIMPEZA%
+    if defined LIVRE_ANTES echo Disco livre antes : %LIVRE_ANTES% MB
+    if defined LIVRE_DEPOIS echo Disco livre depois: %LIVRE_DEPOIS% MB
+    echo.
+    echo Detalhes tambem em limpador.log
+) > "%ARQUIVO_RELATORIO%"
 exit /b
 
 :clean_updates
@@ -200,67 +336,103 @@ echo Limpando arquivos de atualizacao...
 net stop wuauserv >nul 2>&1
 del /f /s /q "%systemroot%\SoftwareDistribution\Download\*-*" >nul 2>&1
 net start wuauserv >nul 2>&1
+if errorlevel 1 (
+    echo Limpeza de atualizacao terminou com aviso.
+    exit /b 1
+)
 echo Limpeza concluida.
-exit /b
+exit /b 0
 
 :flush_dns
 echo Limpando cache DNS...
 ipconfig /flushdns
+if errorlevel 1 (
+    echo Limpeza de DNS falhou.
+    exit /b 1
+)
 echo Limpeza concluida.
-exit /b
+exit /b 0
 
 :clean_trash
 echo Esvaziando lixeira...
 rd /s /q %SystemDrive%\$Recycle.Bin >nul 2>&1
 echo Lixeira limpa.
-exit /b
+exit /b 0
 
 :reset_spooler
 echo Reiniciando spooler de impressao...
 net stop spooler
+if errorlevel 1 (
+    echo Nao deu para parar o spooler.
+    exit /b 1
+)
 net start spooler
+if errorlevel 1 (
+    echo Nao deu para iniciar o spooler.
+    exit /b 1
+)
 echo Processo concluido.
-exit /b
+exit /b 0
 
 :check_disk
-echo Verificando o disco online. Esse processo pode demorar...
+call :aviso_longo "Verificacao de disco (CHKDSK online)." "5 a 15 minutos"
 chkdsk %SystemDrive% /scan
-if errorlevel 1 echo O CHKDSK encontrou um problema ou terminou com erro.
-exit /b
+if errorlevel 1 (
+    echo O CHKDSK encontrou um problema ou terminou com erro.
+    exit /b 1
+)
+echo Verificacao de disco concluida.
+exit /b 0
 
 :check_image
-echo Verificando a imagem do Windows sem reparar...
+call :aviso_longo "Verificacao da imagem do Windows (DISM ScanHealth)." "5 a 15 minutos"
 Dism /Online /Cleanup-Image /ScanHealth
-if errorlevel 1 echo O DISM terminou com erro.
-exit /b
+if errorlevel 1 (
+    echo O DISM terminou com erro.
+    exit /b 1
+)
+echo Verificacao da imagem concluida.
+exit /b 0
 
 :verify_system
-echo Verificando arquivos protegidos sem reparar...
+call :aviso_longo "Verificacao dos arquivos protegidos (SFC verifyonly)." "10 a 20 minutos"
 sfc /verifyonly
-if errorlevel 1 echo O SFC encontrou um problema ou terminou com erro.
-exit /b
+if errorlevel 1 (
+    echo O SFC encontrou um problema ou terminou com erro.
+    exit /b 1
+)
+echo Verificacao dos arquivos concluida.
+exit /b 0
 
 :optimize_disk
-echo Iniciando a otimizacao...
+call :aviso_longo "Otimizacao do disco (SSD/HD)." "alguns minutos"
 defrag %SystemDrive% /O
+if errorlevel 1 (
+    echo A otimizacao terminou com erro.
+    exit /b 1
+)
 echo Otimizacao concluida.
-exit /b
+exit /b 0
 
 :repair_image
-echo Reparando a imagem do Windows. Esse processo pode demorar...
+call :aviso_longo "Reparo da imagem do Windows (DISM RestoreHealth)." "10 a 30 minutos"
 Dism /Online /Cleanup-Image /RestoreHealth
 if errorlevel 1 (
     echo O DISM terminou com erro.
-    exit /b
+    exit /b 1
 )
 echo Imagem do Windows reparada.
-exit /b
+exit /b 0
 
 :repair_system
-echo Verificando e reparando arquivos protegidos...
+call :aviso_longo "Correcao dos arquivos do Windows (SFC scannow)." "10 a 20 minutos"
 sfc /scannow
-echo Verificacao concluida.
-exit /b
+if errorlevel 1 (
+    echo O SFC terminou com erro.
+    exit /b 1
+)
+echo Verificacao e reparo concluidos.
+exit /b 0
 
 :executar_limpeza
 setlocal DisableDelayedExpansion
@@ -274,19 +446,19 @@ set "IDADE_TEMP=1"
 set "INTERVALO_MIN=30"
 set "PASTA_LIXO=_Lixo"
 set "LOG=%~dp0limpador.log"
-set "RAIZ=%USERPROFILE%\Downloads"
+set "PASTA_DOWNLOADS=%USERPROFILE%\Downloads"
+set "PASTA_DESKTOP=%USERPROFILE%\Desktop"
+for /f "usebackq delims=" %%D in (`powershell -NoProfile -Command "[Environment]::GetFolderPath('Desktop')"`) do if not "%%D"=="" set "PASTA_DESKTOP=%%D"
 if "%VIGIAR%"=="1" call :registrar "Vigia ativa. Prefetch fica de fora. Proxima passagem em %INTERVALO_MIN% min."
 
 :ciclo
-set "movidos=0"
-set "quarentena=0"
-set "ignorados=0"
-set "apagados=0"
 set "liberados=0"
+set "LIMPEZA_ERRO=0"
 if "%MODO%"=="simular" call :registrar "Simulacao. Nada sera movido. Use aplicar para valer."
-call :varrer
-call :esvaziar_lixo
-call :registrar "Downloads. organizados=%movidos% quarentena=%quarentena% apagados=%apagados% recentes_ou_desconhecidos=%ignorados%"
+call :organizar_pasta "%PASTA_DOWNLOADS%" "Downloads"
+if errorlevel 1 set "LIMPEZA_ERRO=1"
+call :organizar_pasta "%PASTA_DESKTOP%" "Area de trabalho"
+if errorlevel 1 set "LIMPEZA_ERRO=1"
 call :limpar_sistema
 call :mostrar_total
 if "%VIGIAR%"=="0" goto fim_limpeza
@@ -295,22 +467,38 @@ timeout /t %ESPERA% /nobreak >nul
 goto ciclo
 
 :fim_limpeza
-endlocal
-goto :eof
+set /a mb=liberados/1048576
+set /a resto=(liberados %% 1048576)*10/1048576
+endlocal & set "ESPACO_LIMPEZA=%mb%.%resto% MB" & set "BYTES_LIMPEZA=%liberados%" & exit /b %LIMPEZA_ERRO%
+
+:organizar_pasta
+set "RAIZ=%~1"
+set "NOME_PASTA=%~2"
+set "movidos=0"
+set "quarentena=0"
+set "ignorados=0"
+set "apagados=0"
+call :varrer
+if errorlevel 1 exit /b 1
+call :esvaziar_lixo
+call :registrar "%NOME_PASTA%. organizados=%movidos% quarentena=%quarentena% apagados=%apagados% recentes_ou_desconhecidos=%ignorados%"
+exit /b 0
 
 :varrer
 if not exist "%RAIZ%\" (
-    call :registrar "Pasta de Downloads nao encontrada: %RAIZ%"
-    goto :eof
+    call :registrar "Pasta nao encontrada: %RAIZ%"
+    exit /b 1
 )
 for /f "usebackq delims=" %%F in (`forfiles /P "%RAIZ%" /D -%IDADE_DOWNLOADS% /C "cmd /c if @isdir==FALSE echo @path" 2^>nul`) do call :classificar %%F
-goto :eof
+exit /b 0
 
 :classificar
 set "arquivo=%~1"
 set "nome=%~nx1"
 set "ext=%~x1"
 if "%nome:~0,1%"=="." goto :eof
+if /i "%ext%"==".lnk" goto :eof
+if /i "%ext%"==".url" goto :eof
 call :eh_oculto "%arquivo%"
 if "%OCULTO%"=="1" goto :eof
 if "%ext%"=="" (
@@ -393,7 +581,7 @@ set "origem=%~1"
 set "destino_dir=%~2"
 call :livre "%destino_dir%" "%~nx1"
 if "%MODO%"=="simular" (
-    call :registrar "SIMULAR %~nx1 -> %~nx2"
+    call :registrar "SIMULAR %~nx1 para %~nx2"
     set "MOVEU=1"
     goto :eof
 )
@@ -403,7 +591,7 @@ if errorlevel 1 (
     call :registrar "Nao deu para mover %~nx1"
     goto :eof
 )
-call :registrar "MOVER %~nx1 -> %~nx2"
+call :registrar "MOVER %~nx1 para %~nx2"
 set "MOVEU=1"
 goto :eof
 

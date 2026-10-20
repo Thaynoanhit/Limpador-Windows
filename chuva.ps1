@@ -1,53 +1,58 @@
 param([int]$Segundos = 3)
 
-$ErrorActionPreference = "SilentlyContinue"
-if ([Console]::IsOutputRedirected) { exit 0 }
+$ErrorActionPreference = "Stop"
+try {
+    if ([Console]::IsOutputRedirected) { exit 0 }
 
-$largura = [Console]::WindowWidth
-$altura = [Console]::WindowHeight
-if ($largura -lt 2 -or $altura -lt 2) { exit 0 }
-$largura--
-$altura--
+    $largura = [Math]::Max(2, [Console]::WindowWidth) - 1
+    $altura = [Math]::Max(2, [Console]::WindowHeight) - 1
 
-[Console]::CursorVisible = $false
-[Console]::BackgroundColor = "Black"
-[Console]::ForegroundColor = "Green"
-Clear-Host
+    [Console]::CursorVisible = $false
+    [Console]::BackgroundColor = "Black"
+    [Console]::ForegroundColor = "Green"
+    Clear-Host
 
-$glifos = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ".ToCharArray()
-$sorteio = [System.Random]::new()
-$gotas = New-Object int[] $largura
-for ($i = 0; $i -lt $largura; $i++) {
-    $gotas[$i] = $sorteio.Next(-$altura, $altura)
-}
+    $glifos = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ$#@%&*+=<>".ToCharArray()
+    $sorteio = [System.Random]::new()
+    $gotas = New-Object int[] $largura
+    for ($i = 0; $i -lt $largura; $i++) {
+        $gotas[$i] = $sorteio.Next(-$altura, $altura)
+    }
 
-$ate = [DateTime]::UtcNow.AddSeconds($Segundos)
-while ([DateTime]::UtcNow -lt $ate) {
-    for ($x = 0; $x -lt $largura; $x++) {
-        $y = $gotas[$x]
-        if ($y -ge 0 -and $y -lt $altura) {
-            try {
+    $ate = [DateTime]::UtcNow.AddSeconds($Segundos)
+    while ([DateTime]::UtcNow -lt $ate) {
+        for ($x = 0; $x -lt $largura; $x++) {
+            $y = $gotas[$x]
+            if ($y -ge 0 -and $y -lt $altura) {
                 [Console]::SetCursorPosition($x, $y)
-                if ($sorteio.Next(6) -eq 0) { [Console]::ForegroundColor = "White" } else { [Console]::ForegroundColor = "Green" }
+                if ($sorteio.Next(8) -eq 0) {
+                    [Console]::ForegroundColor = "White"
+                } elseif ($sorteio.Next(3) -eq 0) {
+                    [Console]::ForegroundColor = "DarkGreen"
+                } else {
+                    [Console]::ForegroundColor = "Green"
+                }
                 [Console]::Write($glifos[$sorteio.Next($glifos.Length)])
-            } catch {}
-        }
-        $rastro = $y - 12
-        if ($rastro -ge 0 -and $rastro -lt $altura) {
-            try {
+            }
+            $rastro = $y - 14
+            if ($rastro -ge 0 -and $rastro -lt $altura) {
                 [Console]::SetCursorPosition($x, $rastro)
                 [Console]::Write(" ")
-            } catch {}
+            }
+            $gotas[$x] = $y + 1
+            if ($gotas[$x] -gt $altura + $sorteio.Next(4, 16)) {
+                $gotas[$x] = -$sorteio.Next(0, $altura)
+            }
         }
-        $gotas[$x] = $y + 1
-        if ($gotas[$x] -gt $altura + $sorteio.Next(4, 16)) {
-            $gotas[$x] = -$sorteio.Next(0, $altura)
-        }
+        Start-Sleep -Milliseconds 40
     }
-    Start-Sleep -Milliseconds 45
+} catch {
+    # Se o console nao permitir desenho, segue sem travar a abertura.
+} finally {
+    try {
+        [Console]::ForegroundColor = "Green"
+        [Console]::BackgroundColor = "Black"
+        [Console]::CursorVisible = $true
+        Clear-Host
+    } catch {}
 }
-
-[Console]::ForegroundColor = "Green"
-[Console]::BackgroundColor = "Black"
-[Console]::CursorVisible = $true
-Clear-Host
