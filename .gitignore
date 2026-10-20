@@ -1,6 +1,9 @@
 build/
 dist/
+.tools/
 __pycache__/
 *.spec
 *.log
 *.exe
+relatorio-*.txt
+sem-vigia.flag
