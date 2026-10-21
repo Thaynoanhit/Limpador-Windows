@@ -8,10 +8,6 @@ if /i "%~1"=="simular" (
     call :simular_limpeza
     exit /b
 )
-if /i "%~1"=="vigiar" (
-    call :vigiar
-    exit /b
-)
 
 net session >nul 2>&1
 if %errorlevel% neq 0 (
@@ -27,7 +23,9 @@ if %errorlevel% neq 0 (
     exit /b
 )
 set "ADMIN=Sim"
-call :criar_atalho
+mode con cols=100 lines=42 >nul 2>&1
+call :desligar_automatico
+if /i "%~1"=="vigiar" exit /b
 
 if /i "%~1"=="organizar" (
     call :organizar_downloads
@@ -51,8 +49,11 @@ call :task verify_system "Verificar arquivos protegidos (SFC verifyonly)"
 call :task repair_image "Reparar imagem do Windows (DISM RestoreHealth)"
 call :task repair_system "Corrigir arquivos do Windows (SFC scannow)"
 call :task optimize_disk "Otimizar disco (SSD/HD)"
-call :task remover_atalho "Parar limpeza automatica ao ligar o PC"
-call :task religar_atalho "Religar limpeza automatica ao ligar o PC"
+call :task aliviar_processos "Aliviar processos em segundo plano"
+call :task limpar_caches "Limpar caches do sistema e da placa de video"
+call :task limpar_restos "Tirar restos de programas desinstalados"
+call :task verificar_virus "Verificar virus (Windows Defender)"
+call :task varredura_offline "Varredura offline contra virus (reinicia o PC)"
 
 goto header
 
@@ -160,37 +161,296 @@ timeout /t 1 >nul
 echo.
 exit /b
 
-:criar_atalho
-if exist "%~dp0sem-vigia.flag" (
-    echo Limpeza automatica desligada. Use a opcao do menu para religar.
-    exit /b
-)
-set "ATALHO_BAT=%~f0"
-set "ATALHO_DIR=%~dp0"
-powershell -NoProfile -Command "$s = New-Object -ComObject WScript.Shell; $startup = [Environment]::GetFolderPath('Startup'); $l = $s.CreateShortcut((Join-Path $startup 'LimpadorWindows.lnk')); $l.TargetPath = $env:ATALHO_BAT; $l.Arguments = 'vigiar'; $l.WorkingDirectory = $env:ATALHO_DIR.TrimEnd('\'); $l.WindowStyle = 7; $l.Description = 'Organiza Downloads e Area de trabalho e limpa temporarios em segundo plano'; $l.Save()"
-echo Atalho de inicializacao pronto. Na proxima entrada no Windows a limpeza repete sozinha.
-exit /b
-
-:remover_atalho
-echo Removendo o atalho da inicializacao...
-powershell -NoProfile -Command "$p = Join-Path ([Environment]::GetFolderPath('Startup')) 'LimpadorWindows.lnk'; if (Test-Path -LiteralPath $p) { Remove-Item -LiteralPath $p -Force; exit 0 } else { exit 2 }"
-if errorlevel 2 (
-    echo Nao havia atalho para remover.
-) else if errorlevel 1 (
-    echo Nao deu para remover o atalho.
-    exit /b 1
-) else (
-    echo Atalho removido.
-)
-type nul > "%~dp0sem-vigia.flag"
-echo Pronto. O Windows nao vai mais abrir a limpeza sozinho.
-echo O menu e o aplicar.bat continuam funcionando quando voce clicar neles.
+:desligar_automatico
+if exist "%~dp0sem-vigia.flag" del /f /q "%~dp0sem-vigia.flag" >nul 2>&1
+powershell -NoProfile -Command "$lnk = Join-Path ([Environment]::GetFolderPath('Startup')) 'LimpadorWindows.lnk'; if (Test-Path -LiteralPath $lnk) { Remove-Item -LiteralPath $lnk -Force }; $t = Get-ScheduledTask -TaskName 'LimpadorWindows' -ErrorAction SilentlyContinue; if ($t) { Unregister-ScheduledTask -TaskName 'LimpadorWindows' -Confirm:$false }" >nul 2>&1
 exit /b 0
 
-:religar_atalho
-if exist "%~dp0sem-vigia.flag" del /f /q "%~dp0sem-vigia.flag" >nul 2>&1
-call :criar_atalho
-echo Limpeza automatica religada.
+:aliviar_processos
+echo.
+echo Isso encerra so processos em segundo plano desta lista:
+echo  - Barra de jogos Xbox
+echo  - Widgets do Windows
+echo  - Vincular ao celular
+echo  - OneDrive
+echo  - Atualizadores do Edge, do Google e da Adobe
+echo  - Telemetria de compatibilidade do Windows
+echo.
+echo Navegador, jogos, Explorer e antivirus ficam abertos.
+echo O Windows pode reabrir alguns desses itens depois.
+echo.
+set "confirma="
+set /p confirma=Encerrar esses processos agora? (S/N): 
+if /i not "%confirma%"=="S" (
+    echo Cancelado.
+    exit /b 0
+)
+set "LOG=%~dp0limpador.log"
+set "ENCERRADOS=0"
+set "AUSENTES=0"
+set "FALHOU_PROC=0"
+for %%P in (
+    GameBar.exe
+    GameBarFTServer.exe
+    GameBarPresenceWriter.exe
+    Widgets.exe
+    WidgetService.exe
+    PhoneExperienceHost.exe
+    YourPhone.exe
+    YourPhoneAppProxy.exe
+    OneDrive.exe
+    MicrosoftEdgeUpdate.exe
+    GoogleUpdate.exe
+    GoogleCrashHandler.exe
+    GoogleCrashHandler64.exe
+    AdobeIPCBroker.exe
+    CompatTelRunner.exe
+) do call :encerrar_processo %%P
+echo.
+echo Encerrados: %ENCERRADOS%. Nao estavam abertos: %AUSENTES%. Falhas: %FALHOU_PROC%.
+call :registrar "ALIVIAR encerrados=%ENCERRADOS% ausentes=%AUSENTES% falhas=%FALHOU_PROC%"
+if %FALHOU_PROC% GTR 0 exit /b 1
+exit /b 0
+
+:encerrar_processo
+tasklist /FI "IMAGENAME eq %~1" /NH 2>nul | findstr /I /C:"%~1" >nul
+if errorlevel 1 (
+    set /a AUSENTES+=1
+    exit /b 0
+)
+taskkill /IM "%~1" >nul 2>&1
+if not errorlevel 1 goto encerrou_processo
+taskkill /F /IM "%~1" >nul 2>&1
+if errorlevel 1 (
+    echo Nao deu para encerrar %~1
+    call :registrar "ALIVIAR falhou %~1"
+    set /a FALHOU_PROC+=1
+    exit /b 1
+)
+:encerrou_processo
+echo Encerrado: %~1
+call :registrar "ALIVIAR encerrado %~1"
+set /a ENCERRADOS+=1
+exit /b 0
+
+:limpar_caches
+echo.
+echo Limpa caches que o Windows e a placa de video recriam sozinhos:
+echo  - shaders DirectX, NVIDIA, AMD e Intel
+echo  - miniaturas e icones do Explorer
+echo  - cache de fontes
+echo  - cache de Otimizacao de Entrega
+echo.
+echo Navegador fica de fora. Conta salva, cookie e sessao nao sao apagados.
+echo O primeiro jogo depois disso pode demorar um pouco mais para abrir.
+echo DNS, atualizacao do Windows e Prefetch continuam nas outras opcoes.
+echo.
+set "confirma="
+set /p confirma=Limpar esses caches agora? (S/N): 
+if /i not "%confirma%"=="S" (
+    echo Cancelado.
+    exit /b 0
+)
+set "LOG=%~dp0limpador.log"
+set "CACHE_LIBERADO=0"
+set "CACHE_EM_USO=0"
+call :esvaziar_cache "%LOCALAPPDATA%\D3DSCache" "Shaders DirectX"
+call :esvaziar_cache "%LOCALAPPDATA%\NVIDIA\DXCache" "Shaders NVIDIA DX"
+call :esvaziar_cache "%LOCALAPPDATA%\NVIDIA\GLCache" "Shaders NVIDIA GL"
+call :esvaziar_cache "%LOCALAPPDATA%\NVIDIA\OptixCache" "Shaders NVIDIA OptiX"
+call :esvaziar_cache "%PROGRAMDATA%\NVIDIA Corporation\NV_Cache" "Cache NVIDIA"
+call :esvaziar_cache "%LOCALAPPDATA%\AMD\DxCache" "Shaders AMD DX"
+call :esvaziar_cache "%LOCALAPPDATA%\AMD\DxcCache" "Shaders AMD DXC"
+call :esvaziar_cache "%LOCALAPPDATA%\AMD\GLCache" "Shaders AMD GL"
+call :esvaziar_cache "%LOCALAPPDATA%\AMD\VkCache" "Shaders AMD Vulkan"
+call :esvaziar_cache "%LOCALAPPDATA%\Intel\ShaderCache" "Shaders Intel"
+call :limpar_miniaturas
+echo Parando o cache de fontes...
+net stop FontCache >nul 2>&1
+call :esvaziar_cache "%SystemRoot%\ServiceProfiles\LocalService\AppData\Local\FontCache" "Fontes"
+if exist "%SystemRoot%\System32\FNTCACHE.DAT" del /f /q "%SystemRoot%\System32\FNTCACHE.DAT" >nul 2>&1
+net start FontCache >nul 2>&1
+call :esvaziar_cache "%SystemRoot%\ServiceProfiles\NetworkService\AppData\Local\Microsoft\Windows\DeliveryOptimization\Cache" "Otimizacao de Entrega"
+powershell -NoProfile -Command "if (Get-Command Delete-DeliveryOptimizationCache -ErrorAction SilentlyContinue) { Delete-DeliveryOptimizationCache -Force -ErrorAction SilentlyContinue }" >nul 2>&1
+call :mostrar_caches
+call :registrar "CACHE liberado=%CACHE_LIBERADO% bytes em_uso=%CACHE_EM_USO%"
+exit /b 0
+
+:limpar_miniaturas
+set "CACHE_ALVO=%LOCALAPPDATA%\Microsoft\Windows\Explorer"
+if not exist "%CACHE_ALVO%\" (
+    echo Ausente: Miniaturas
+    call :registrar "CACHE ausente Miniaturas"
+    exit /b 0
+)
+for /f "usebackq delims=" %%N in (`powershell -NoProfile -Command "$s=(Get-ChildItem -LiteralPath $env:CACHE_ALVO -Force -File -ErrorAction SilentlyContinue | Where-Object { $_.Name -like 'thumbcache_*.db' -or $_.Name -like 'iconcache_*.db' } | Measure-Object -Property Length -Sum).Sum; if($null -eq $s){'0'}else{[convert]::ToString([int64]$s,10)}"`) do set "ANTES=%%N"
+if "%ANTES%"=="" set "ANTES=0"
+if "%ANTES%"=="0" (
+    echo Vazio: Miniaturas
+    call :registrar "CACHE vazio Miniaturas"
+    exit /b 0
+)
+del /f /q /a "%CACHE_ALVO%\thumbcache_*.db" >nul 2>&1
+del /f /q /a "%CACHE_ALVO%\iconcache_*.db" >nul 2>&1
+for /f "usebackq delims=" %%N in (`powershell -NoProfile -Command "$s=(Get-ChildItem -LiteralPath $env:CACHE_ALVO -Force -File -ErrorAction SilentlyContinue | Where-Object { $_.Name -like 'thumbcache_*.db' -or $_.Name -like 'iconcache_*.db' } | Measure-Object -Property Length -Sum).Sum; if($null -eq $s){'0'}else{[convert]::ToString([int64]$s,10)}"`) do set "DEPOIS=%%N"
+if "%DEPOIS%"=="" set "DEPOIS=0"
+call :somar_cache
+if not "%DEPOIS%"=="0" (
+    echo Em uso, ficou resto: Miniaturas
+    set "CACHE_EM_USO=1"
+    call :registrar "CACHE em uso Miniaturas"
+) else (
+    echo Limpo: Miniaturas
+    call :registrar "CACHE limpo Miniaturas"
+)
+exit /b 0
+
+:esvaziar_cache
+set "CACHE_ALVO=%~1"
+if not exist "%CACHE_ALVO%\" (
+    echo Ausente: %~2
+    call :registrar "CACHE ausente %~2"
+    exit /b 0
+)
+call :medir_cache
+set "ANTES=%MEDIDA%"
+if "%ANTES%"=="0" (
+    echo Vazio: %~2
+    call :registrar "CACHE vazio %~2"
+    exit /b 0
+)
+del /f /s /q /a "%CACHE_ALVO%\*" >nul 2>&1
+for /d %%D in ("%CACHE_ALVO%\*") do rd /s /q "%%D" >nul 2>&1
+call :medir_cache
+set "DEPOIS=%MEDIDA%"
+call :somar_cache
+if not "%DEPOIS%"=="0" (
+    echo Em uso, ficou resto: %~2
+    set "CACHE_EM_USO=1"
+    call :registrar "CACHE em uso %~2"
+) else (
+    echo Limpo: %~2
+    call :registrar "CACHE limpo %~2"
+)
+exit /b 0
+
+:medir_cache
+set "MEDIDA=0"
+for /f "usebackq delims=" %%N in (`powershell -NoProfile -Command "$s=(Get-ChildItem -LiteralPath $env:CACHE_ALVO -Recurse -File -Force -ErrorAction SilentlyContinue | Measure-Object -Property Length -Sum).Sum; if($null -eq $s){'0'}else{[convert]::ToString([int64]$s,10)}"`) do set "MEDIDA=%%N"
+if "%MEDIDA%"=="" set "MEDIDA=0"
+exit /b 0
+
+:somar_cache
+for /f "usebackq delims=" %%N in (`powershell -NoProfile -Command "$l=[int64]$env:CACHE_LIBERADO; $a=[int64]$env:ANTES; $d=[int64]$env:DEPOIS; if($a -lt $d){$a=$d}; [convert]::ToString($l + $a - $d, 10)"`) do set "CACHE_LIBERADO=%%N"
+exit /b 0
+
+:mostrar_caches
+for /f "usebackq delims=" %%N in (`powershell -NoProfile -Command "$b=[int64]$env:CACHE_LIBERADO; $mb=[math]::Floor($b/1MB); $resto=[math]::Floor(($b %% 1MB)*10/1MB); '{0}.{1}' -f $mb,$resto"`) do set "CACHE_MB=%%N"
+echo.
+echo Espaco liberado nos caches: %CACHE_MB% MB
+if "%CACHE_EM_USO%"=="1" echo Alguns arquivos estavam em uso e ficaram para a proxima vez.
+echo Navegadores nao foram alterados.
+exit /b 0
+
+:limpar_restos
+echo.
+echo Procura restos de programas que ja foram desinstalados.
+echo A pasta so e apagada em Arquivos de Programas ou ProgramData,
+echo quando o desinstalador sumiu e nao restou nenhum programa.
+echo Tambem tira a entrada fantasma da lista de programas
+echo e o inicio automatico que aponta para arquivo que nao existe.
+echo AppData, pasta do usuario, navegador e pecas do Windows ficam de fora.
+echo.
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0restos.ps1" -Modo listar
+if errorlevel 2 exit /b 0
+if errorlevel 1 (
+    echo Nao deu para procurar os restos.
+    exit /b 1
+)
+echo.
+set "confirma="
+set /p confirma=Apagar esses restos agora? (S/N): 
+if /i not "%confirma%"=="S" (
+    echo Cancelado.
+    exit /b 0
+)
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0restos.ps1" -Modo aplicar
+if errorlevel 1 (
+    echo Limpeza de restos terminou com aviso.
+    exit /b 1
+)
+echo Limpeza de restos concluida.
+exit /b 0
+
+:verificar_virus
+echo.
+echo Verifica virus com o Windows Defender, que ja vem no Windows.
+echo Atualiza as definicoes e faz a varredura rapida.
+echo Leva alguns minutos. Nao feche a janela.
+echo A varredura do disco inteiro fica na Seguranca do Windows: pode levar horas.
+echo.
+set "confirma="
+set /p confirma=Verificar virus agora? (S/N): 
+if /i not "%confirma%"=="S" (
+    echo Cancelado.
+    exit /b 0
+)
+set "LOG=%~dp0limpador.log"
+powershell -NoProfile -Command "try { $s = Get-MpComputerStatus -ErrorAction Stop; if (-not $s.AntivirusEnabled) { exit 2 }; if (-not $s.RealTimeProtectionEnabled) { Write-Output 'Protecao em tempo real esta desligada. A varredura mesmo assim vai rodar.' } } catch { exit 2 }"
+if errorlevel 2 (
+    echo O Windows Defender nao esta ativo neste PC.
+    call :registrar "VIRUS defender inativo"
+    exit /b 1
+)
+echo Atualizando definicoes...
+powershell -NoProfile -Command "try { Update-MpSignature -ErrorAction Stop; exit 0 } catch { exit 1 }"
+if errorlevel 1 echo Nao deu para atualizar as definicoes. A varredura segue com as que ja estao no PC.
+echo Varredura rapida em andamento...
+powershell -NoProfile -Command "try { Start-MpScan -ScanType QuickScan -ErrorAction Stop; exit 0 } catch { Write-Output $_.Exception.Message; exit 1 }"
+if errorlevel 1 (
+    echo A varredura nao terminou.
+    call :registrar "VIRUS varredura falhou"
+    exit /b 1
+)
+powershell -NoProfile -Command "$t = Get-MpThreat -ErrorAction SilentlyContinue; if (-not $t) { Write-Output 'Nenhuma ameaca encontrada.'; exit 0 }; foreach ($a in @($t)) { Write-Output ('Ameaca: ' + $a.ThreatName) }; exit 3"
+if errorlevel 3 (
+    echo Abra a Seguranca do Windows para ver a ameaca e decidir o que fazer.
+    call :registrar "VIRUS ameaca encontrada"
+    exit /b 1
+)
+call :registrar "VIRUS nenhuma ameaca"
+exit /b 0
+
+:varredura_offline
+echo.
+echo Use isto quando um virus continua rodando junto com o Windows.
+echo O PC reinicia e o Defender examina o disco antes do sistema abrir.
+echo Salve seus arquivos. A volta ao Windows pode demorar.
+echo.
+set "confirma="
+set /p confirma=Digite SIM para reiniciar e varrer: 
+if /i not "%confirma%"=="SIM" (
+    echo Cancelado.
+    exit /b 0
+)
+set "LOG=%~dp0limpador.log"
+powershell -NoProfile -Command "try { $s = Get-MpComputerStatus -ErrorAction Stop; if (-not $s.AntivirusEnabled) { exit 2 } } catch { exit 2 }"
+if errorlevel 2 (
+    echo O Windows Defender nao esta ativo neste PC.
+    call :registrar "VIRUS defender inativo"
+    exit /b 1
+)
+echo Atualizando definicoes...
+powershell -NoProfile -Command "try { Update-MpSignature -ErrorAction Stop; exit 0 } catch { exit 1 }"
+if errorlevel 1 echo Nao deu para atualizar as definicoes. A varredura segue com as que ja estao no PC.
+echo Reiniciando para a varredura offline...
+call :registrar "VIRUS varredura offline iniciada"
+powershell -NoProfile -Command "try { Start-MpWDOScan -ErrorAction Stop; exit 0 } catch { Write-Output $_.Exception.Message; exit 1 }"
+if errorlevel 1 (
+    echo Nao deu para iniciar a varredura offline.
+    call :registrar "VIRUS varredura offline falhou"
+    exit /b 1
+)
 exit /b 0
 
 :simular_limpeza
@@ -204,10 +464,6 @@ echo Limpando temporarios, dumps e Prefetch.
 echo Atalhos da Area de trabalho ficam no lugar. Instalador antigo so e movido.
 call :executar_limpeza aplicar 1
 exit /b %ERRORLEVEL%
-
-:vigiar
-call :executar_limpeza aplicar 0 vigiar
-exit /b
 
 :aplicar_tudo
 cls
@@ -438,20 +694,15 @@ exit /b 0
 setlocal DisableDelayedExpansion
 set "MODO=%~1"
 set "INCLUIR_PREFETCH=%~2"
-set "VIGIAR=0"
-if /i "%~3"=="vigiar" set "VIGIAR=1"
 set "IDADE_DOWNLOADS=2"
 set "IDADE_LIXO=7"
 set "IDADE_TEMP=1"
-set "INTERVALO_MIN=30"
 set "PASTA_LIXO=_Lixo"
 set "LOG=%~dp0limpador.log"
 set "PASTA_DOWNLOADS=%USERPROFILE%\Downloads"
 set "PASTA_DESKTOP=%USERPROFILE%\Desktop"
 for /f "usebackq delims=" %%D in (`powershell -NoProfile -Command "[Environment]::GetFolderPath('Desktop')"`) do if not "%%D"=="" set "PASTA_DESKTOP=%%D"
-if "%VIGIAR%"=="1" call :registrar "Vigia ativa. Prefetch fica de fora. Proxima passagem em %INTERVALO_MIN% min."
 
-:ciclo
 set "liberados=0"
 set "LIMPEZA_ERRO=0"
 if "%MODO%"=="simular" call :registrar "Simulacao. Nada sera movido. Use aplicar para valer."
@@ -461,10 +712,7 @@ call :organizar_pasta "%PASTA_DESKTOP%" "Area de trabalho"
 if errorlevel 1 set "LIMPEZA_ERRO=1"
 call :limpar_sistema
 call :mostrar_total
-if "%VIGIAR%"=="0" goto fim_limpeza
-set /a "ESPERA=INTERVALO_MIN*60"
-timeout /t %ESPERA% /nobreak >nul
-goto ciclo
+goto fim_limpeza
 
 :fim_limpeza
 set /a mb=liberados/1048576
