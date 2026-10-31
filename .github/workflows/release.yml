@@ -18,7 +18,7 @@ jobs:
       - name: Montar o zip
         run: |
           mkdir -p dist/Limpador-Windows
-          cp manutencao.bat aplicar.bat chuva.ps1 restos.ps1 otimizar.ps1 README.md LICENSE dist/Limpador-Windows/
+          cp manutencao.bat chuva.ps1 restos.ps1 otimizar.ps1 auditor.ps1 README.md LICENSE dist/Limpador-Windows/
           cd dist
           zip -r "Limpador-Windows-v1.${{ github.run_number }}.zip" Limpador-Windows
 
@@ -38,8 +38,7 @@ jobs:
 
           Baixe o \`.zip\`, extraia a pasta e use:
 
-          - \`manutencao.bat\` para escolher no menu
-          - \`aplicar.bat\` para rodar tudo de uma vez
+          - \`manutencao.bat\` para abrir o menu e escolher o que rodar
 
           Nao precisa de Python. O Windows pede administrador na primeira abertura.
 

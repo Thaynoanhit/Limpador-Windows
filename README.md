@@ -7,20 +7,15 @@ Organiza a raiz das pastas Downloads e Área de trabalho, limpa temporários do 
 1. Abra a página de [Releases](https://github.com/Thaynoanhit/Limpador-Windows/releases).
 2. Baixe o `.zip` da versão mais recente.
 3. Extraia a pasta.
-4. Clique em `manutencao.bat` ou `aplicar.bat`.
+4. Clique em `manutencao.bat` e escolha no menu o que quer rodar.
 
 Cada merge na branch `main` cria uma release e uma tag novas automaticamente, com o zip pronto.
 
-## Dois jeitos de usar
+## Como usar
 
-Os dois pedem permissão de administrador. Nada roda sozinho: a limpeza só acontece quando alguém abre um dos dois.
+O programa pede permissão de administrador. Nada roda sozinho: a limpeza só acontece quando alguém abre o `manutencao.bat` e escolhe uma opção.
 
-| Arquivo | Para quem | O que acontece |
-| --- | --- | --- |
-| `manutencao.bat` | Quem quer escolher | Abre o menu e roda só a opção escolhida |
-| `aplicar.bat` | Quem quer aplicar e pronto | Roda a manutenção seguida, sem perguntar |
-
-O histórico detalhado fica em `limpador.log`. O clique único também grava um `relatorio-AAAAAMMDD-HHMMSS.txt` com o resumo do que rodou, o que falhou e o espaço liberado.
+O histórico detalhado fica em `limpador.log`. A auditoria de segurança grava `auditoria-....html` e `.json`.
 
 ## O que a limpeza de arquivos faz
 
@@ -34,21 +29,7 @@ Pastas que você já criou dentro de Downloads ou da Área de trabalho não são
 
 Um arquivo só entra na organização depois de 2 dias. Mover um arquivo não entra na conta de espaço liberado. O Windows recria os `.pf` quando um programa abre, então a pasta Prefetch não fica vazia para sempre.
 
-Sem administrador, `C:\Windows\Temp` e o Prefetch ficam de fora. O menu e o `aplicar.bat` já pedem essa permissão.
-
-## O que o clique único executa
-
-1. Organizar Downloads, Área de trabalho e limpar temporários
-2. Limpar arquivos de atualização que não são mais necessários
-3. Limpar o cache DNS
-4. Esvaziar a lixeira
-5. Reiniciar a fila de impressão
-6. Reparar a imagem do Windows (DISM)
-7. Corrigir arquivos protegidos (SFC)
-8. Verificar o disco (CHKDSK online)
-9. Otimizar o disco
-
-Antes das etapas longas (DISM, SFC, CHKDSK e otimização), a janela avisa o tempo estimado e pede para não fechar. No final aparece um resumo: o que deu certo, o que falhou e quanto espaço a limpeza de arquivos liberou. O mesmo resumo vai para o arquivo `relatorio-...txt`.
+Sem administrador, `C:\Windows\Temp` e o Prefetch ficam de fora. O menu já pede essa permissão.
 
 ## O que o menu deixa escolher
 
@@ -74,18 +55,20 @@ Antes das etapas longas (DISM, SFC, CHKDSK e otimização), a janela avisa o tem
 20. Performance leve (Game DVR, animações, energia)
 21. Desativar serviços inúteis (inclui WSearch)
 22. Otimizar Windows (bloat, privacidade, performance, serviços)
+23. Auditar segurança do Windows (só leitura)
+24. Corrigir falhas seguras da auditoria
 
-A opção 0 sai. As opções 1, 8 e 9 só olham o sistema. O `aplicar.bat` não as executa, para não repetir a verificação antes do reparo. As opções 13 a 22 também ficam só no menu.
+A opção 0 sai. As opções 1, 8 e 9 só olham o sistema. Antes das etapas longas (DISM, SFC, CHKDSK e otimização), a janela avisa o tempo estimado.
 
 A opção 13 pede confirmação e encerra só uma lista fixa: barra de jogos Xbox, Widgets, Vincular ao celular, OneDrive, atualizadores do Edge, do Google e da Adobe, e a telemetria de compatibilidade. Navegador, jogos, Explorer e antivírus ficam abertos. O Windows pode reabrir alguns desses itens depois.
 
 A opção 14 pede confirmação e apaga caches que o sistema recria: shaders da placa de vídeo (DirectX, NVIDIA, AMD e Intel), miniaturas e ícones do Explorer, cache de fontes e cache de Otimização de Entrega. O navegador fica de fora de propósito. A pasta de cache do Chrome, do Edge e do Firefox fica ao lado dos cookies e da sessão, e apagar o arquivo errado desconecta as contas. O primeiro jogo depois da opção 14 pode abrir mais devagar, até a placa recriar os shaders.
 
-A opção 15 pede confirmação e lista antes de apagar. Uma pasta só entra se o desinstalador sumiu, não restou programa dentro dela, e ela está em Arquivos de Programas ou ProgramData. Também remove a entrada fantasma em Aplicativos e o atalho de inicialização que aponta para um arquivo que não existe. AppData, pasta do usuário, navegador e componentes do Windows ficam de fora. O `aplicar.bat` não executa essa opção.
+A opção 15 pede confirmação e lista antes de apagar. Uma pasta só entra se o desinstalador sumiu, não restou programa dentro dela, e ela está em Arquivos de Programas ou ProgramData. Também remove a entrada fantasma em Aplicativos e o atalho de inicialização que aponta para um arquivo que não existe. AppData, pasta do usuário, navegador e componentes do Windows ficam de fora.
 
 A opção 16 pede confirmação, atualiza as definições do Windows Defender e faz a varredura rápida. Se aparecer ameaça, o programa avisa para abrir a Segurança do Windows. A varredura do disco inteiro continua lá, porque pode levar horas.
 
-A opção 17 pede a palavra SIM, atualiza as definições e reinicia o PC. A varredura acontece antes do Windows abrir, com o vírus parado. Salve os arquivos antes. O `aplicar.bat` não executa essa opção.
+A opção 17 pede a palavra SIM, atualiza as definições e reinicia o PC. A varredura acontece antes do Windows abrir, com o vírus parado. Salve os arquivos antes.
 
 A opção 18 remove apps pré-instalados (Bing, Skype, Solitaire, Mapas, Feedback Hub, Vincular ao celular e similares). Xbox, Game Bar, Store, Paint e codecs de imagem ficam no lugar.
 
@@ -95,17 +78,21 @@ A opção 20 desliga Game DVR, reduz animações e ativa o plano `ChrisTitus - U
 
 A opção 21 desativa Fax, telemetria, RemoteRegistry, WSearch e similares. Serviços Xbox, SysMain, spooler, Windows Update e Defender ficam ativos. Desligar WSearch enfraquece a busca do menu Iniciar e do Explorer.
 
-A opção 22 pede a palavra SIM e roda as opções 18 a 21 em sequência. O `aplicar.bat` não executa essa opção.
+A opção 22 pede a palavra SIM e roda as opções 18 a 21 em sequência.
+
+A opção 23 audita o Windows (só leitura) com baseline inspirada no CIS: firewall, Defender, SMBv1, RDP, UAC, LSASS, conta Convidado (SID), política de senha, BitLocker, Secure Boot, autologon e Windows Update. Gera `auditoria-....html` e `.json` e abre o HTML.
+
+A opção 24 pede a palavra SIM e corrige só falhas seguras: firewall, Defender em tempo real, SMBv1, RDP e conta Convidado. Não altera sozinho senha mínima, lockout nem LSASS (aparecem só como recomendação no relatório).
 
 ## Arquivos
 
 - `manutencao.bat` abre o menu e contém a limpeza.
-- `aplicar.bat` dispara a manutenção completa.
 - `chuva.ps1` desenha a abertura em verde na primeira vez que o menu abre.
 - `restos.ps1` procura restos de programas já desinstalados. O menu chama esse arquivo na opção 15.
 - `otimizar.ps1` remove bloat, aplica privacidade, performance leve e desativa serviços. O menu chama esse arquivo nas opções 18 a 22.
+- `auditor.ps1` audita a segurança do Windows e aplica correções seguras. O menu chama esse arquivo nas opções 23 e 24.
 - `limpador.log` guarda o detalhe da limpeza. Não entra no Git.
-- `relatorio-....txt` guarda o resumo do clique único. Não entra no Git.
+- `auditoria-....html` / `auditoria-....json` guardam o relatório da auditoria. Não entram no Git.
 
 ## Licença
 
