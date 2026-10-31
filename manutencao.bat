@@ -23,7 +23,7 @@ if %errorlevel% neq 0 (
     exit /b
 )
 set "ADMIN=Sim"
-mode con cols=100 lines=42 >nul 2>&1
+mode con cols=100 lines=48 >nul 2>&1
 call :desligar_automatico
 if /i "%~1"=="vigiar" exit /b
 
@@ -54,6 +54,11 @@ call :task limpar_caches "Limpar caches do sistema e da placa de video"
 call :task limpar_restos "Tirar restos de programas desinstalados"
 call :task verificar_virus "Verificar virus (Windows Defender)"
 call :task varredura_offline "Varredura offline contra virus (reinicia o PC)"
+call :task remover_bloat "Remover apps pre-instalados (sem Xbox)"
+call :task privacidade "Privacidade (telemetria, anuncios, Cortana)"
+call :task performance_leve "Performance leve (Game DVR, animacoes, energia)"
+call :task desativar_servicos "Desativar servicos inuteis (inclui WSearch)"
+call :task otimizar_windows "Otimizar Windows (bloat, privacidade, performance, servicos)"
 
 goto header
 
@@ -74,6 +79,19 @@ if not defined task_func[%~1] (
 )
 call :!task_func[%~1]!
 exit /b
+
+:perguntar_sn
+choice /C SN /N /M "%~1 [S/N]"
+if errorlevel 2 exit /b 1
+if errorlevel 1 exit /b 0
+exit /b 1
+
+:perguntar_sim
+set "confirma="
+set /p "confirma=%~1 "
+if /i "!confirma!"=="SIM" exit /b 0
+if /i "!confirma!"=="S" exit /b 0
+exit /b 1
 
 :header
 if not defined ABERTURA (
@@ -113,7 +131,7 @@ if "!IP:~0,1!"==" " set "IP=!IP:~1!"
 
 cls
 echo ==========================================================
-echo  A MATRIX  ^|  Siga o coelho branco.
+echo                         A MATRIX  
 echo ==========================================================
 echo Administrador : %ADMIN%
 echo Computador    : %COMPUTERNAME%
@@ -179,9 +197,8 @@ echo.
 echo Navegador, jogos, Explorer e antivirus ficam abertos.
 echo O Windows pode reabrir alguns desses itens depois.
 echo.
-set "confirma="
-set /p confirma=Encerrar esses processos agora? (S/N): 
-if /i not "%confirma%"=="S" (
+call :perguntar_sn "Encerrar esses processos agora"
+if errorlevel 1 (
     echo Cancelado.
     exit /b 0
 )
@@ -245,9 +262,8 @@ echo Navegador fica de fora. Conta salva, cookie e sessao nao sao apagados.
 echo O primeiro jogo depois disso pode demorar um pouco mais para abrir.
 echo DNS, atualizacao do Windows e Prefetch continuam nas outras opcoes.
 echo.
-set "confirma="
-set /p confirma=Limpar esses caches agora? (S/N): 
-if /i not "%confirma%"=="S" (
+call :perguntar_sn "Limpar esses caches agora"
+if errorlevel 1 (
     echo Cancelado.
     exit /b 0
 )
@@ -368,9 +384,8 @@ if errorlevel 1 (
     exit /b 1
 )
 echo.
-set "confirma="
-set /p confirma=Apagar esses restos agora? (S/N): 
-if /i not "%confirma%"=="S" (
+call :perguntar_sn "Apagar esses restos agora"
+if errorlevel 1 (
     echo Cancelado.
     exit /b 0
 )
@@ -389,9 +404,8 @@ echo Atualiza as definicoes e faz a varredura rapida.
 echo Leva alguns minutos. Nao feche a janela.
 echo A varredura do disco inteiro fica na Seguranca do Windows: pode levar horas.
 echo.
-set "confirma="
-set /p confirma=Verificar virus agora? (S/N): 
-if /i not "%confirma%"=="S" (
+call :perguntar_sn "Verificar virus agora"
+if errorlevel 1 (
     echo Cancelado.
     exit /b 0
 )
@@ -427,9 +441,8 @@ echo Use isto quando um virus continua rodando junto com o Windows.
 echo O PC reinicia e o Defender examina o disco antes do sistema abrir.
 echo Salve seus arquivos. A volta ao Windows pode demorar.
 echo.
-set "confirma="
-set /p confirma=Digite SIM para reiniciar e varrer: 
-if /i not "%confirma%"=="SIM" (
+call :perguntar_sim "Digite SIM para reiniciar e varrer:"
+if errorlevel 1 (
     echo Cancelado.
     exit /b 0
 )
@@ -451,6 +464,141 @@ if errorlevel 1 (
     call :registrar "VIRUS varredura offline falhou"
     exit /b 1
 )
+exit /b 0
+
+:remover_bloat
+echo.
+echo Remove apps pre-instalados: Bing, Skype, Solitaire, Mapas,
+echo Feedback Hub, Vincular ao celular e similares.
+echo Xbox, Game Bar, Store, Paint e codecs de imagem ficam no lugar.
+echo.
+call :perguntar_sn "Remover esses apps agora"
+if errorlevel 1 (
+    echo Cancelado.
+    exit /b 0
+)
+if not exist "%~dp0otimizar.ps1" (
+    echo Arquivo otimizar.ps1 nao encontrado.
+    exit /b 1
+)
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0otimizar.ps1" -Modo bloat
+if errorlevel 1 (
+    echo Remocao de apps terminou com aviso.
+    exit /b 1
+)
+echo Remocao de apps concluida.
+exit /b 0
+
+:privacidade
+echo.
+echo Reduz telemetria, anuncios, Cortana e sugestoes do Windows.
+echo Nao remove Xbox nem Game Bar.
+echo.
+call :perguntar_sn "Aplicar privacidade agora"
+if errorlevel 1 (
+    echo Cancelado.
+    exit /b 0
+)
+if not exist "%~dp0otimizar.ps1" (
+    echo Arquivo otimizar.ps1 nao encontrado.
+    exit /b 1
+)
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0otimizar.ps1" -Modo privacidade
+if errorlevel 1 (
+    echo Privacidade terminou com aviso.
+    exit /b 1
+)
+echo Privacidade aplicada.
+exit /b 0
+
+:performance_leve
+echo.
+echo Desliga Game DVR, reduz animacoes e ativa o plano
+echo ChrisTitus - Ultimate Power Plan (cria se ainda nao existir).
+echo Disco, USB, PCI Express e processador no maximo.
+echo Xbox e Game Bar nao sao removidos.
+echo.
+call :perguntar_sn "Aplicar performance leve agora"
+if errorlevel 1 (
+    echo Cancelado.
+    exit /b 0
+)
+if not exist "%~dp0otimizar.ps1" (
+    echo Arquivo otimizar.ps1 nao encontrado.
+    exit /b 1
+)
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0otimizar.ps1" -Modo performance
+if errorlevel 1 (
+    echo Performance leve terminou com aviso.
+    exit /b 1
+)
+echo Performance leve aplicada.
+exit /b 0
+
+:desativar_servicos
+echo.
+echo Desativa Fax, telemetria, RemoteRegistry, WSearch e similares.
+echo WSearch desligado enfraquece a busca do menu Iniciar e do Explorer.
+echo Servicos Xbox, SysMain, spooler, Update e Defender ficam ativos.
+echo.
+call :perguntar_sn "Desativar esses servicos agora"
+if errorlevel 1 (
+    echo Cancelado.
+    exit /b 0
+)
+if not exist "%~dp0otimizar.ps1" (
+    echo Arquivo otimizar.ps1 nao encontrado.
+    exit /b 1
+)
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0otimizar.ps1" -Modo servicos
+if errorlevel 1 (
+    echo Desativacao de servicos terminou com aviso.
+    exit /b 1
+)
+echo Servicos desativados.
+exit /b 0
+
+:otimizar_windows
+echo.
+echo Pacote completo: apps pre-instalados, privacidade,
+echo performance leve e servicos inuteis.
+echo Xbox e Game Bar nao sao tocados.
+echo WSearch sera desativado. Salve o que estiver aberto.
+echo.
+call :perguntar_sim "Digite SIM para otimizar o Windows agora:"
+if errorlevel 1 (
+    echo Cancelado.
+    exit /b 0
+)
+if not exist "%~dp0otimizar.ps1" (
+    echo Arquivo otimizar.ps1 nao encontrado.
+    exit /b 1
+)
+set "LOG=%~dp0limpador.log"
+set "OTIM_OK=0"
+set "OTIM_FALHOU=0"
+echo.
+echo [1/4] Apps pre-instalados...
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0otimizar.ps1" -Modo bloat
+if errorlevel 1 (set /a OTIM_FALHOU+=1) else (set /a OTIM_OK+=1)
+echo.
+echo [2/4] Privacidade...
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0otimizar.ps1" -Modo privacidade
+if errorlevel 1 (set /a OTIM_FALHOU+=1) else (set /a OTIM_OK+=1)
+echo.
+echo [3/4] Performance leve...
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0otimizar.ps1" -Modo performance
+if errorlevel 1 (set /a OTIM_FALHOU+=1) else (set /a OTIM_OK+=1)
+echo.
+echo [4/4] Servicos inuteis...
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0otimizar.ps1" -Modo servicos
+if errorlevel 1 (set /a OTIM_FALHOU+=1) else (set /a OTIM_OK+=1)
+echo.
+echo ==========================================================
+echo  Otimizacao concluida. Ok: %OTIM_OK%  Falhou: %OTIM_FALHOU%
+echo ==========================================================
+call :registrar "OTIMIZAR pacote ok=%OTIM_OK% falhou=%OTIM_FALHOU%"
+if %OTIM_FALHOU% GTR 0 exit /b 1
 exit /b 0
 
 :simular_limpeza
