@@ -69,8 +69,13 @@ Antes das etapas longas (DISM, SFC, CHKDSK e otimização), a janela avisa o tem
 15. Tirar restos de programas desinstalados
 16. Verificar vírus (Windows Defender)
 17. Varredura offline contra vírus (reinicia o PC)
+18. Remover apps pré-instalados (sem Xbox)
+19. Privacidade (telemetria, anúncios, Cortana)
+20. Performance leve (Game DVR, animações, energia)
+21. Desativar serviços inúteis (inclui WSearch)
+22. Otimizar Windows (bloat, privacidade, performance, serviços)
 
-A opção 0 sai. As opções 1, 8 e 9 só olham o sistema. O `aplicar.bat` não as executa, para não repetir a verificação antes do reparo. As opções 13, 14, 15, 16 e 17 também ficam só no menu.
+A opção 0 sai. As opções 1, 8 e 9 só olham o sistema. O `aplicar.bat` não as executa, para não repetir a verificação antes do reparo. As opções 13 a 22 também ficam só no menu.
 
 A opção 13 pede confirmação e encerra só uma lista fixa: barra de jogos Xbox, Widgets, Vincular ao celular, OneDrive, atualizadores do Edge, do Google e da Adobe, e a telemetria de compatibilidade. Navegador, jogos, Explorer e antivírus ficam abertos. O Windows pode reabrir alguns desses itens depois.
 
@@ -82,12 +87,23 @@ A opção 16 pede confirmação, atualiza as definições do Windows Defender e 
 
 A opção 17 pede a palavra SIM, atualiza as definições e reinicia o PC. A varredura acontece antes do Windows abrir, com o vírus parado. Salve os arquivos antes. O `aplicar.bat` não executa essa opção.
 
+A opção 18 remove apps pré-instalados (Bing, Skype, Solitaire, Mapas, Feedback Hub, Vincular ao celular e similares). Xbox, Game Bar, Store, Paint e codecs de imagem ficam no lugar.
+
+A opção 19 reduz telemetria, anúncios, Cortana e sugestões do Windows.
+
+A opção 20 desliga Game DVR, reduz animações e ativa o plano `ChrisTitus - Ultimate Power Plan` (cria se ainda não existir): disco sem desligar, USB selective suspend off, PCI Express off e processador no máximo. Não remove Xbox nem Game Bar.
+
+A opção 21 desativa Fax, telemetria, RemoteRegistry, WSearch e similares. Serviços Xbox, SysMain, spooler, Windows Update e Defender ficam ativos. Desligar WSearch enfraquece a busca do menu Iniciar e do Explorer.
+
+A opção 22 pede a palavra SIM e roda as opções 18 a 21 em sequência. O `aplicar.bat` não executa essa opção.
+
 ## Arquivos
 
 - `manutencao.bat` abre o menu e contém a limpeza.
 - `aplicar.bat` dispara a manutenção completa.
 - `chuva.ps1` desenha a abertura em verde na primeira vez que o menu abre.
 - `restos.ps1` procura restos de programas já desinstalados. O menu chama esse arquivo na opção 15.
+- `otimizar.ps1` remove bloat, aplica privacidade, performance leve e desativa serviços. O menu chama esse arquivo nas opções 18 a 22.
 - `limpador.log` guarda o detalhe da limpeza. Não entra no Git.
 - `relatorio-....txt` guarda o resumo do clique único. Não entra no Git.
 
