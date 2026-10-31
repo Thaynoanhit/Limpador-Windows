@@ -7,3 +7,5 @@ __pycache__/
 *.log
 *.exe
 relatorio-*.txt
+auditoria-*.html
+auditoria-*.json

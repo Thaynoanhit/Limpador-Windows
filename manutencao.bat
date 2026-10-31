@@ -23,16 +23,12 @@ if %errorlevel% neq 0 (
     exit /b
 )
 set "ADMIN=Sim"
-mode con cols=100 lines=48 >nul 2>&1
+mode con cols=100 lines=52 >nul 2>&1
 call :desligar_automatico
 if /i "%~1"=="vigiar" exit /b
 
 if /i "%~1"=="organizar" (
     call :organizar_downloads
-    exit /b
-)
-if /i "%~1"=="tudo" (
-    call :aplicar_tudo
     exit /b
 )
 
@@ -59,6 +55,8 @@ call :task privacidade "Privacidade (telemetria, anuncios, Cortana)"
 call :task performance_leve "Performance leve (Game DVR, animacoes, energia)"
 call :task desativar_servicos "Desativar servicos inuteis (inclui WSearch)"
 call :task otimizar_windows "Otimizar Windows (bloat, privacidade, performance, servicos)"
+call :task auditar_seguranca "Auditar seguranca do Windows (so leitura)"
+call :task corrigir_auditoria "Corrigir falhas seguras da auditoria"
 
 goto header
 
@@ -167,14 +165,10 @@ color 0A
 cls
 echo.
 echo  ========================================
-echo   Acorde, %USERNAME%.
+echo               %USERNAME%.
 echo  ========================================
 timeout /t 1 >nul
 echo   A Matrix te pegou...
-timeout /t 1 >nul
-echo   Siga o coelho branco.
-timeout /t 1 >nul
-echo   A escolha e sua: menu ou aplicar.bat.
 timeout /t 1 >nul
 echo.
 exit /b
@@ -601,6 +595,50 @@ call :registrar "OTIMIZAR pacote ok=%OTIM_OK% falhou=%OTIM_FALHOU%"
 if %OTIM_FALHOU% GTR 0 exit /b 1
 exit /b 0
 
+:auditar_seguranca
+echo.
+echo Audita o Windows contra uma baseline de seguranca.
+echo Firewall, Defender, SMBv1, RDP, UAC, LSASS, Convidado,
+echo senha, BitLocker, Secure Boot e Update.
+echo So leitura. Gera HTML e JSON e abre o relatorio.
+echo.
+if not exist "%~dp0auditor.ps1" (
+    echo Arquivo auditor.ps1 nao encontrado.
+    exit /b 1
+)
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0auditor.ps1" -Modo auditar
+if errorlevel 1 (
+    echo Auditoria concluida com falhas ou avisos. Veja o HTML.
+    exit /b 1
+)
+echo Auditoria concluida. Tudo aprovado.
+exit /b 0
+
+:corrigir_auditoria
+echo.
+echo Corrige so falhas seguras: firewall, Defender, SMBv1,
+echo RDP e conta Convidado.
+echo NAO altera senha minima, lockout, BitLocker nem LSASS.
+echo Se so essas falhas manuais existirem, a nota fica igual.
+echo Depois gera um novo relatorio HTML.
+echo.
+call :perguntar_sim "Digite SIM para corrigir falhas seguras:"
+if errorlevel 1 (
+    echo Cancelado.
+    exit /b 0
+)
+if not exist "%~dp0auditor.ps1" (
+    echo Arquivo auditor.ps1 nao encontrado.
+    exit /b 1
+)
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0auditor.ps1" -Modo corrigir
+if errorlevel 1 (
+    echo Correcao terminou com aviso. Veja o relatorio.
+    exit /b 1
+)
+echo Correcao concluida.
+exit /b 0
+
 :simular_limpeza
 echo Simulacao. Nada sera movido nem apagado.
 call :executar_limpeza simular 1
@@ -613,72 +651,6 @@ echo Atalhos da Area de trabalho ficam no lugar. Instalador antigo so e movido.
 call :executar_limpeza aplicar 1
 exit /b %ERRORLEVEL%
 
-:aplicar_tudo
-cls
-color 0A
-title A Matrix - Manutencao completa
-echo.
-echo  ========================================
-echo   ENTRANDO NA MATRIX...
-echo   Manutencao completa em andamento.
-echo   Nao feche esta janela.
-echo  ========================================
-echo.
-echo  Etapas longas pela frente:
-echo   - DISM RestoreHealth : cerca de 10 a 30 min
-echo   - SFC scannow        : cerca de 10 a 20 min
-echo   - CHKDSK online      : cerca de 5 a 15 min
-echo   - Otimizar disco     : varia conforme o disco
-echo.
-timeout /t 4 >nul
-
-set "RESUMO_COUNT=0"
-set "RESUMO_OK=0"
-set "RESUMO_FALHOU=0"
-set "ESPACO_LIMPEZA=0.0 MB"
-set "BYTES_LIMPEZA=0"
-call :disco_livre LIVRE_ANTES
-
-call :rodar_passo "Organizar Downloads, Area de trabalho e limpar temporarios" organizar_downloads
-call :rodar_passo "Limpar arquivos de atualizacao" clean_updates
-call :rodar_passo "Limpar cache DNS" flush_dns
-call :rodar_passo "Esvaziar lixeira" clean_trash
-call :rodar_passo "Reiniciar fila de impressao" reset_spooler
-call :rodar_passo "Reparar imagem do Windows (DISM)" repair_image
-call :rodar_passo "Corrigir arquivos do Windows (SFC)" repair_system
-call :rodar_passo "Verificar disco (CHKDSK)" check_disk
-call :rodar_passo "Otimizar disco" optimize_disk
-
-call :disco_livre LIVRE_DEPOIS
-call :mostrar_resumo
-call :gravar_relatorio
-echo.
-echo  Relatorio salvo em:
-echo  %ARQUIVO_RELATORIO%
-echo.
-echo  A Matrix te devolve o controle. Enter para sair.
-pause >nul
-exit /b
-
-:rodar_passo
-set /a RESUMO_COUNT+=1
-set "RESUMO_NOME[%RESUMO_COUNT%]=%~1"
-echo.
-echo  ----------------------------------------
-echo  [%RESUMO_COUNT%/9] %~1
-echo  ----------------------------------------
-call :%~2
-if errorlevel 1 (
-    set "RESUMO_STATUS[%RESUMO_COUNT%]=FALHOU"
-    set /a RESUMO_FALHOU+=1
-    echo  Resultado: FALHOU
-) else (
-    set "RESUMO_STATUS[%RESUMO_COUNT%]=OK"
-    set /a RESUMO_OK+=1
-    echo  Resultado: OK
-)
-exit /b 0
-
 :aviso_longo
 echo.
 echo  ========================================
@@ -688,51 +660,6 @@ echo   Pode demorar cerca de %~2. Nao feche a janela.
 echo  ========================================
 echo.
 timeout /t 3 >nul
-exit /b
-
-:disco_livre
-set "%~1=?"
-for /f "usebackq delims=" %%A in (`powershell -NoProfile -Command "[math]::Floor((Get-PSDrive -Name ($env:SystemDrive.TrimEnd(':'))).Free/1MB)"`) do set "%~1=%%A"
-exit /b
-
-:mostrar_resumo
-echo.
-echo  ========================================
-echo   RESUMO DA MATRIX
-echo  ========================================
-for /l %%i in (1,1,%RESUMO_COUNT%) do (
-    echo   %%i. !RESUMO_STATUS[%%i]!  - !RESUMO_NOME[%%i]!
-)
-echo  ----------------------------------------
-echo   Ok: %RESUMO_OK%   Falhou: %RESUMO_FALHOU%
-echo   Espaco liberado pela limpeza: %ESPACO_LIMPEZA%
-if defined LIVRE_ANTES if defined LIVRE_DEPOIS (
-    echo   Disco livre antes : %LIVRE_ANTES% MB
-    echo   Disco livre depois: %LIVRE_DEPOIS% MB
-)
-echo  ========================================
-exit /b
-
-:gravar_relatorio
-for /f "usebackq delims=" %%T in (`powershell -NoProfile -Command "Get-Date -Format 'yyyyMMdd-HHmmss'"`) do set "STAMP=%%T"
-set "ARQUIVO_RELATORIO=%~dp0relatorio-%STAMP%.txt"
-(
-    echo Limpador Windows - Relatorio da Matrix
-    echo Data/Hora : %DATE% %TIME:~0,8%
-    echo Computador: %COMPUTERNAME%
-    echo Usuario   : %USERNAME%
-    echo.
-    echo Resultados:
-    for /l %%i in (1,1,%RESUMO_COUNT%) do echo   %%i. !RESUMO_STATUS[%%i]!  - !RESUMO_NOME[%%i]!
-    echo.
-    echo Ok: %RESUMO_OK%
-    echo Falhou: %RESUMO_FALHOU%
-    echo Espaco liberado pela limpeza de arquivos: %ESPACO_LIMPEZA%
-    if defined LIVRE_ANTES echo Disco livre antes : %LIVRE_ANTES% MB
-    if defined LIVRE_DEPOIS echo Disco livre depois: %LIVRE_DEPOIS% MB
-    echo.
-    echo Detalhes tambem em limpador.log
-) > "%ARQUIVO_RELATORIO%"
 exit /b
 
 :clean_updates
@@ -853,7 +780,7 @@ for /f "usebackq delims=" %%D in (`powershell -NoProfile -Command "[Environment]
 
 set "liberados=0"
 set "LIMPEZA_ERRO=0"
-if "%MODO%"=="simular" call :registrar "Simulacao. Nada sera movido. Use aplicar para valer."
+if "%MODO%"=="simular" call :registrar "Simulacao. Nada sera movido. Use a opcao 2 do menu para valer."
 call :organizar_pasta "%PASTA_DOWNLOADS%" "Downloads"
 if errorlevel 1 set "LIMPEZA_ERRO=1"
 call :organizar_pasta "%PASTA_DESKTOP%" "Area de trabalho"
