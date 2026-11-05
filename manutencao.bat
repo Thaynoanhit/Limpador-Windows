@@ -23,7 +23,7 @@ if %errorlevel% neq 0 (
     exit /b
 )
 set "ADMIN=Sim"
-mode con cols=100 lines=52 >nul 2>&1
+mode con cols=100 lines=56 >nul 2>&1
 call :desligar_automatico
 if /i "%~1"=="vigiar" exit /b
 
@@ -57,6 +57,10 @@ call :task desativar_servicos "Desativar servicos inuteis (inclui WSearch)"
 call :task otimizar_windows "Otimizar Windows (bloat, privacidade, performance, servicos)"
 call :task auditar_seguranca "Auditar seguranca do Windows (so leitura)"
 call :task corrigir_auditoria "Corrigir falhas seguras da auditoria"
+call :task ver_memoria "Ver uso de memoria RAM"
+call :task reiniciar_explorer "Reiniciar o Explorer"
+call :task reset_update "Reset do Windows Update"
+call :task reset_rede "Reset da rede (Winsock e IP)"
 
 goto header
 
@@ -144,7 +148,7 @@ echo                         ** MENU **
 echo.
 echo ==========================================================
 call :list_task
-echo 0 - Sair ^(desconectar^)
+echo 0  - Sair ^(desconectar^)
 echo ==========================================================
 echo.
 set "opcao="
@@ -637,6 +641,88 @@ if errorlevel 1 (
     exit /b 1
 )
 echo Correcao concluida.
+exit /b 0
+
+:ver_memoria
+echo.
+powershell -NoProfile -Command "$o=Get-CimInstance Win32_OperatingSystem; $t=[math]::Round($o.TotalVisibleMemorySize/1024); $l=[math]::Round($o.FreePhysicalMemory/1024); $u=$t-$l; $p=0; if($t -gt 0){$p=[math]::Round(($u*100)/$t)}; Write-Output ('Total: {0} MB' -f $t); Write-Output ('Livre: {0} MB' -f $l); Write-Output ('Usada: {0} MB ({1}%%)' -f $u,$p)"
+echo.
+exit /b 0
+
+:reiniciar_explorer
+echo.
+echo Fecha e abre de novo a barra de tarefas e as janelas do Explorer.
+echo Arquivos abertos no Explorer podem fechar. Salve o que estiver editando.
+echo.
+call :perguntar_sn "Reiniciar o Explorer agora"
+if errorlevel 1 (
+    echo Cancelado.
+    exit /b 0
+)
+set "LOG=%~dp0limpador.log"
+taskkill /F /IM explorer.exe >nul 2>&1
+timeout /t 2 >nul
+start explorer.exe
+call :registrar "EXPLORER reiniciado"
+echo Explorer reiniciado.
+exit /b 0
+
+:reset_update
+echo.
+echo Para os servicos de atualizacao e recria o cache do Windows Update.
+echo A opcao 3 so apaga downloads velhos. Esta aqui refaz a pasta inteira.
+echo Atualizacoes pendentes podem precisar comecar de novo.
+echo.
+call :perguntar_sn "Resetar o Windows Update agora"
+if errorlevel 1 (
+    echo Cancelado.
+    exit /b 0
+)
+set "LOG=%~dp0limpador.log"
+echo Parando servicos...
+net stop wuauserv >nul 2>&1
+net stop bits >nul 2>&1
+net stop cryptsvc >nul 2>&1
+if exist "%SystemRoot%\SoftwareDistribution.bak" rd /s /q "%SystemRoot%\SoftwareDistribution.bak" >nul 2>&1
+if exist "%SystemRoot%\System32\catroot2.bak" rd /s /q "%SystemRoot%\System32\catroot2.bak" >nul 2>&1
+if exist "%SystemRoot%\SoftwareDistribution" ren "%SystemRoot%\SoftwareDistribution" SoftwareDistribution.bak
+if exist "%SystemRoot%\System32\catroot2" ren "%SystemRoot%\System32\catroot2" catroot2.bak
+echo Iniciando servicos...
+net start cryptsvc >nul 2>&1
+net start bits >nul 2>&1
+net start wuauserv >nul 2>&1
+if errorlevel 1 (
+    echo Reset terminou com aviso. Veja se o Windows Update abre.
+    call :registrar "UPDATE reset com aviso"
+    exit /b 1
+)
+call :registrar "UPDATE reset concluido"
+echo Reset do Windows Update concluido.
+exit /b 0
+
+:reset_rede
+echo.
+echo Limpa o DNS, recria o Winsock e restaura o TCP/IP.
+echo A internet pode cair ate reiniciar o PC.
+echo IP fixo e VPN podem precisar ser configurados de novo.
+echo.
+call :perguntar_sim "Digite SIM para resetar a rede:"
+if errorlevel 1 (
+    echo Cancelado.
+    exit /b 0
+)
+set "LOG=%~dp0limpador.log"
+ipconfig /flushdns
+netsh winsock reset
+if errorlevel 1 (
+    echo Nao deu para resetar o Winsock.
+    call :registrar "REDE winsock falhou"
+    exit /b 1
+)
+netsh int ip reset
+call :registrar "REDE reset concluido"
+echo.
+echo Reset da rede concluido. Reinicie o PC para a rede voltar ao normal.
 exit /b 0
 
 :simular_limpeza

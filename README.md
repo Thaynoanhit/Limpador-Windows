@@ -57,6 +57,10 @@ Sem administrador, `C:\Windows\Temp` e o Prefetch ficam de fora. O menu já pede
 22. Otimizar Windows (bloat, privacidade, performance, serviços)
 23. Auditar segurança do Windows (só leitura)
 24. Corrigir falhas seguras da auditoria
+25. Ver uso de memória RAM
+26. Reiniciar o Explorer
+27. Reset do Windows Update
+28. Reset da rede (Winsock e IP)
 
 A opção 0 sai. As opções 1, 8 e 9 só olham o sistema. Antes das etapas longas (DISM, SFC, CHKDSK e otimização), a janela avisa o tempo estimado.
 
@@ -83,6 +87,14 @@ A opção 22 pede a palavra SIM e roda as opções 18 a 21 em sequência.
 A opção 23 audita o Windows (só leitura) com baseline inspirada no CIS: firewall, Defender, SMBv1, RDP, UAC, LSASS, conta Convidado (SID), política de senha, BitLocker, Secure Boot, autologon e Windows Update. Gera `auditoria-....html` e `.json` e abre o HTML.
 
 A opção 24 pede a palavra SIM e corrige só falhas seguras: firewall, Defender em tempo real, SMBv1, RDP e conta Convidado. Não altera sozinho senha mínima, lockout nem LSASS (aparecem só como recomendação no relatório).
+
+A opção 25 só mostra a memória total, livre e usada.
+
+A opção 26 pede confirmação e reinicia o Explorer. A barra e as janelas do Explorer fecham e abrem de novo.
+
+A opção 27 pede confirmação e recria o cache do Windows Update. A opção 3 só apaga downloads antigos. Atualizações pendentes podem recomeçar.
+
+A opção 28 pede a palavra SIM, limpa o DNS, recria o Winsock e restaura o TCP/IP. A internet pode cair até reiniciar o PC.
 
 ## Arquivos
 
