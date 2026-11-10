@@ -61,6 +61,9 @@ Sem administrador, `C:\Windows\Temp` e o Prefetch ficam de fora. O menu já pede
 26. Reiniciar o Explorer
 27. Reset do Windows Update
 28. Reset da rede (Winsock e IP)
+29. Saúde do disco (S.M.A.R.T.)
+30. Informações de rede (ipconfig)
+31. Teste de conectividade
 
 A opção 0 sai. As opções 1, 8 e 9 só olham o sistema. Antes das etapas longas (DISM, SFC, CHKDSK e otimização), a janela avisa o tempo estimado.
 
@@ -95,6 +98,12 @@ A opção 26 pede confirmação e reinicia o Explorer. A barra e as janelas do E
 A opção 27 pede confirmação e recria o cache do Windows Update. A opção 3 só apaga downloads antigos. Atualizações pendentes podem recomeçar.
 
 A opção 28 pede a palavra SIM, limpa o DNS, recria o Winsock e restaura o TCP/IP. A internet pode cair até reiniciar o PC.
+
+A opção 29 só lê a saúde dos discos pelo Windows (`Healthy` / `Warning` / `Unhealthy`). Não apaga nada.
+
+A opção 30 mostra `ipconfig /all`.
+
+A opção 31 faz ping em 8.8.8.8 e 1.1.1.1 e um `tracert` curto.
 
 ## Arquivos
 

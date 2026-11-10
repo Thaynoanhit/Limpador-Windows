@@ -23,7 +23,7 @@ if %errorlevel% neq 0 (
     exit /b
 )
 set "ADMIN=Sim"
-mode con cols=100 lines=56 >nul 2>&1
+mode con cols=100 lines=58 >nul 2>&1
 call :desligar_automatico
 if /i "%~1"=="vigiar" exit /b
 
@@ -61,6 +61,9 @@ call :task ver_memoria "Ver uso de memoria RAM"
 call :task reiniciar_explorer "Reiniciar o Explorer"
 call :task reset_update "Reset do Windows Update"
 call :task reset_rede "Reset da rede (Winsock e IP)"
+call :task saude_disco "Saude do disco (S.M.A.R.T.)"
+call :task info_rede "Informacoes de rede (ipconfig)"
+call :task teste_rede "Teste de conectividade"
 
 goto header
 
@@ -723,6 +726,42 @@ netsh int ip reset
 call :registrar "REDE reset concluido"
 echo.
 echo Reset da rede concluido. Reinicie o PC para a rede voltar ao normal.
+exit /b 0
+
+:saude_disco
+echo.
+echo Le a saude dos discos pelo Windows. So leitura. Nao apaga nada.
+echo Healthy / OK = disco bom. Warning ou Unhealthy merece backup e troca.
+echo.
+powershell -NoProfile -Command "$ErrorActionPreference='Continue'; Write-Output '=== Discos fisicos ==='; Get-PhysicalDisk | ForEach-Object { '{0} | {1} | Health={2} | Op={3} | {4} GB' -f $_.DeviceId, $_.FriendlyName, $_.HealthStatus, $_.OperationalStatus, [math]::Round($_.Size/1GB) }; Write-Output ''; Write-Output '=== Volumes ==='; Get-Disk | ForEach-Object { '{0} | {1} | {2} | Particao={3}' -f $_.Number, $_.FriendlyName, $_.HealthStatus, $_.PartitionStyle }"
+if errorlevel 1 (
+    echo Nao deu para ler a saude do disco.
+    exit /b 1
+)
+echo.
+exit /b 0
+
+:info_rede
+echo.
+echo Mostra IP, gateway, DNS e adaptadores. So leitura.
+echo.
+ipconfig /all
+echo.
+exit /b 0
+
+:teste_rede
+echo.
+echo Testa ping no Google DNS e no Cloudflare. So leitura.
+echo.
+echo --- Ping 8.8.8.8 ---
+ping -n 4 8.8.8.8
+echo.
+echo --- Ping 1.1.1.1 ---
+ping -n 4 1.1.1.1
+echo.
+echo --- Rota ate 8.8.8.8 ---
+tracert -d -h 15 8.8.8.8
+echo.
 exit /b 0
 
 :simular_limpeza
