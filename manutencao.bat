@@ -23,7 +23,7 @@ if %errorlevel% neq 0 (
     exit /b
 )
 set "ADMIN=Sim"
-mode con cols=100 lines=58 >nul 2>&1
+mode con cols=100 lines=62 >nul 2>&1
 call :desligar_automatico
 if /i "%~1"=="vigiar" exit /b
 
@@ -64,6 +64,10 @@ call :task reset_rede "Reset da rede (Winsock e IP)"
 call :task saude_disco "Saude do disco (S.M.A.R.T.)"
 call :task info_rede "Informacoes de rede (ipconfig)"
 call :task teste_rede "Teste de conectividade"
+call :task listar_impressoras "Listar impressoras"
+call :task dispositivos_erro "Dispositivos com erro"
+call :task procurar_atualizacoes "Procurar atualizacoes do Windows"
+call :task atualizacoes_opcionais "Abrir atualizacoes opcionais"
 
 goto header
 
@@ -762,6 +766,65 @@ echo.
 echo --- Rota ate 8.8.8.8 ---
 tracert -d -h 15 8.8.8.8
 echo.
+exit /b 0
+
+:listar_impressoras
+echo.
+echo Lista impressoras instaladas. So leitura.
+echo.
+powershell -NoProfile -Command "$ErrorActionPreference='Continue'; $ps = Get-Printer -ErrorAction SilentlyContinue; if (-not $ps) { Write-Output 'Nenhuma impressora encontrada.'; exit 0 }; $ps | ForEach-Object { '{0} | Porta={1} | Driver={2} | Status={3} | Padrao={4}' -f $_.Name, $_.PortName, $_.DriverName, $_.PrinterStatus, $_.Default }"
+if errorlevel 1 (
+    echo Nao deu para listar as impressoras.
+    exit /b 1
+)
+echo.
+exit /b 0
+
+:dispositivos_erro
+echo.
+echo Lista dispositivos com erro no Gerenciador de Dispositivos. So leitura.
+echo.
+powershell -NoProfile -Command "$ErrorActionPreference='Continue'; $devs = Get-PnpDevice -PresentOnly -ErrorAction SilentlyContinue | Where-Object { $_.Status -eq 'Error' -or $_.Status -eq 'Degraded' -or $_.Status -eq 'Unknown' }; if (-not $devs) { Write-Output 'Nenhum dispositivo com erro encontrado.'; exit 0 }; $devs | Sort-Object Class, FriendlyName | ForEach-Object { '{0} | {1} | Status={2} | InstanceId={3}' -f $_.Class, $_.FriendlyName, $_.Status, $_.InstanceId }"
+if errorlevel 1 (
+    echo Nao deu para listar os dispositivos.
+    exit /b 1
+)
+echo.
+exit /b 0
+
+:procurar_atualizacoes
+echo.
+echo Dispara a busca do Windows Update. Nao instala nada sozinho.
+echo Depois abra Configuracoes - Windows Update para ver o resultado.
+echo.
+where UsoClient >nul 2>&1
+if errorlevel 1 (
+    start "" ms-settings:windowsupdate
+    echo Abriu as Configuracoes do Windows Update.
+    exit /b 0
+)
+UsoClient.exe StartScan >nul 2>&1
+if errorlevel 1 (
+    start "" ms-settings:windowsupdate
+    echo Nao deu para disparar o scan. Abriu as Configuracoes do Windows Update.
+    exit /b 0
+)
+echo Busca iniciada. Pode levar alguns minutos.
+start "" ms-settings:windowsupdate
+exit /b 0
+
+:atualizacoes_opcionais
+echo.
+echo Abre as atualizacoes opcionais do Windows Update.
+echo Voce escolhe o que instalar. Nenhum driver e instalado sozinho.
+echo.
+start "" ms-settings:windowsupdate-optionalupdates
+if errorlevel 1 (
+    start "" ms-settings:windowsupdate
+    echo Nao abriu a pagina opcional. Abriu o Windows Update normal.
+    exit /b 0
+)
+echo Pagina aberta. Confira drivers e atualizacoes opcionais la.
 exit /b 0
 
 :simular_limpeza

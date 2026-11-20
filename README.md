@@ -64,6 +64,10 @@ Sem administrador, `C:\Windows\Temp` e o Prefetch ficam de fora. O menu já pede
 29. Saúde do disco (S.M.A.R.T.)
 30. Informações de rede (ipconfig)
 31. Teste de conectividade
+32. Listar impressoras
+33. Dispositivos com erro
+34. Procurar atualizações do Windows
+35. Abrir atualizações opcionais
 
 A opção 0 sai. As opções 1, 8 e 9 só olham o sistema. Antes das etapas longas (DISM, SFC, CHKDSK e otimização), a janela avisa o tempo estimado.
 
@@ -104,6 +108,14 @@ A opção 29 só lê a saúde dos discos pelo Windows (`Healthy` / `Warning` / `
 A opção 30 mostra `ipconfig /all`.
 
 A opção 31 faz ping em 8.8.8.8 e 1.1.1.1 e um `tracert` curto.
+
+A opção 32 lista as impressoras instaladas (nome, porta, driver e status). Só leitura.
+
+A opção 33 lista dispositivos com status `Error`, `Degraded` ou `Unknown`. Só leitura. Não instala nem remove driver.
+
+A opção 34 dispara a busca do Windows Update e abre as Configurações. Não instala nada sozinho.
+
+A opção 35 abre a página de atualizações opcionais. Você escolhe o que instalar; nenhum driver é instalado automaticamente.
 
 ## Arquivos
 
